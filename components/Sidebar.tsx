@@ -10,13 +10,17 @@ import {
   UsersIcon, 
   UserCircleIcon,
   ChartBarIcon,
-  ClipboardDocumentCheckIcon
+  ClipboardDocumentCheckIcon,
+  DocumentTextIcon,
+  QrCodeIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
   { name: '대시보드', href: '/', icon: HomeIcon },
   { name: 'Ops 보드', href: '/ops-board', icon: ChartBarIcon, badge: 'NEW' },
   { name: 'My Tasks', href: '/my-tasks', icon: ClipboardDocumentCheckIcon, badge: 'NEW' },
+  { name: '주문업로드&배송연동', href: '/orders', icon: DocumentTextIcon, badge: 'NEW' },
+  { name: '🔍 스캐너 테스트', href: '/scanner-test', icon: QrCodeIcon, badge: 'TEST' },
   { name: '재고 관리', href: '/inventory', icon: CubeIcon },
   { name: '입고 관리', href: '/inbound', icon: ArrowDownTrayIcon },
   { name: '출고 관리', href: '/outbound', icon: ArrowUpTrayIcon },
@@ -66,7 +70,7 @@ export default function Sidebar() {
           <div className="h-8 w-8 rounded-full bg-blue-600" />
           <div className="flex-1">
             <p className="text-sm font-medium text-white">관리자</p>
-            <p className="text-xs text-blue-200">admin@wms.com</p>
+            <p className="text-xs text-blue-200">admin@anhwms.com</p>
           </div>
         </div>
       </div>

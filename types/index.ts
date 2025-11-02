@@ -152,3 +152,122 @@ export interface OpsStats {
   };
 }
 
+// ====================================================================
+// 주문 업로드 & 배송연동
+// ====================================================================
+
+export interface Order {
+  id: string;
+  orderNo: string;
+  userId?: string;
+  countryCode?: string;
+  productName?: string;
+  remark?: string;
+  logisticsCompany?: 'CJ' | 'ANH' | 'INTL';
+  trackingNo?: string;
+  status: 'CREATED' | 'PUSHED' | 'SYNCED' | 'FAILED';
+  createdAt: Date;
+  updatedAt: Date;
+  receiver?: OrderReceiver;
+}
+
+export interface OrderReceiver {
+  id: string;
+  orderId: string;
+  name: string;
+  phone?: string;
+  zip?: string;
+  address1?: string;
+  address2?: string;
+  locality?: string;
+  countryCode?: string;
+  meta?: any;
+  createdAt: Date;
+}
+
+export interface OrderSender {
+  id: string;
+  name: string;
+  phone?: string;
+  zip?: string;
+  address?: string;
+  addressDetail?: string;
+  isDefault: boolean;
+  createdAt: Date;
+}
+
+export interface LogisticsApiLog {
+  id: string;
+  orderId: string;
+  adapter: 'CJ' | 'ANH' | 'INTL';
+  direction: 'REQUEST' | 'RESPONSE';
+  status: 'S' | 'E' | 'F';
+  httpCode?: number;
+  headers?: any;
+  body?: any;
+  createdAt: Date;
+}
+
+export interface TelParts {
+  a: string;
+  b: string;
+  c: string;
+}
+
+export interface ParsedAddress {
+  countryCode: string;
+  address1: string;
+  address2: string;
+  postcode: string;
+  locality: string;
+  phoneIntl: string;
+}
+
+export interface CJRegBookPayload {
+  order: {
+    orderNo: string;
+    trackingNo: string;
+    items: Array<{
+      name: string;
+      qty: number;
+      unit: string;
+      amountKRW: number;
+    }>;
+    remark?: string;
+    createdAt?: string;
+  };
+  sender: {
+    name: string;
+    tel: TelParts;
+    zip: string;
+    addr: string;
+    addrDetail: string;
+  };
+  receiver: {
+    name: string;
+    tel: TelParts;
+    zip: string;
+    addr: string;
+    addrDetail: string;
+  };
+  options: {
+    printFlag: string;
+    deliveryType: string;
+    boxType: string;
+    boxQty: number;
+    freight: number;
+  };
+}
+
+export interface CJRegBookResponse {
+  result: 'S' | 'E' | 'F';
+  invoiceNo?: string;
+  cj?: {
+    RESULT_CD: string;
+    RESULT_DETAIL: string;
+  };
+  echo?: {
+    orderNo: string;
+  };
+}
+

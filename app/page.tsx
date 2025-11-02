@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { getProducts } from '@/lib/api/products';
+import { getRecentInbounds, Inbound } from '@/lib/api/inbounds';
+import { getRecentOutbounds, Outbound } from '@/lib/api/outbounds';
 import { Product } from '@/types';
 import { 
   CubeIcon, 
@@ -13,6 +15,8 @@ import {
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [inbounds, setInbounds] = useState<Inbound[]>([]);
+  const [outbounds, setOutbounds] = useState<Outbound[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,8 +26,14 @@ export default function Home() {
   async function loadData() {
     try {
       setLoading(true);
-      const productsData = await getProducts();
+      const [productsData, inboundsData, outboundsData] = await Promise.all([
+        getProducts(),
+        getRecentInbounds(5),
+        getRecentOutbounds(5),
+      ]);
       setProducts(productsData);
+      setInbounds(inboundsData);
+      setOutbounds(outboundsData);
     } catch (error) {
       console.error('데이터 로딩 실패:', error);
     } finally {
@@ -33,6 +43,11 @@ export default function Home() {
 
   const lowStockProducts = products.filter(p => p.quantity < p.minStock);
   const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
+  
+  // 금일 입출고 건수 (오늘 날짜 기준)
+  const today = new Date().toDateString();
+  const todayInbounds = inbounds.filter(i => new Date(i.inbound_date).toDateString() === today).length;
+  const todayOutbounds = outbounds.filter(o => new Date(o.outbound_date).toDateString() === today).length;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR', {
@@ -113,7 +128,7 @@ export default function Home() {
               <div>
                 <p className="text-sm font-medium text-gray-600">금일 입/출고</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
-                  0/0
+                  {todayInbounds}/{todayOutbounds}
                 </p>
               </div>
               <div className="rounded-full bg-purple-100 p-3">
@@ -133,7 +148,24 @@ export default function Home() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-500 text-center py-8">입고 데이터가 없습니다</p>
+              {inbounds.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">입고 데이터가 없습니다</p>
+              ) : (
+                <div className="space-y-4">
+                  {inbounds.map((inbound) => (
+                    <div key={inbound.id} className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div>
+                        <p className="font-medium text-gray-900">{inbound.product_name}</p>
+                        <p className="text-sm text-gray-500">{inbound.supplier_name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-green-600">+{inbound.quantity}{inbound.unit}</p>
+                        <p className="text-xs text-gray-500">{formatDate(new Date(inbound.inbound_date))}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -146,7 +178,24 @@ export default function Home() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-500 text-center py-8">출고 데이터가 없습니다</p>
+              {outbounds.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">출고 데이터가 없습니다</p>
+              ) : (
+                <div className="space-y-4">
+                  {outbounds.map((outbound) => (
+                    <div key={outbound.id} className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div>
+                        <p className="font-medium text-gray-900">{outbound.product_name}</p>
+                        <p className="text-sm text-gray-500">{outbound.customer_name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-blue-600">-{outbound.quantity}{outbound.unit}</p>
+                        <p className="text-xs text-gray-500">{formatDate(new Date(outbound.outbound_date))}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
