@@ -8,11 +8,15 @@ import {
   ArrowDownTrayIcon, 
   ArrowUpTrayIcon, 
   UsersIcon, 
-  UserCircleIcon 
+  UserCircleIcon,
+  ChartBarIcon,
+  ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
   { name: '대시보드', href: '/', icon: HomeIcon },
+  { name: 'Ops 보드', href: '/ops-board', icon: ChartBarIcon, badge: 'NEW' },
+  { name: 'My Tasks', href: '/my-tasks', icon: ClipboardDocumentCheckIcon, badge: 'NEW' },
   { name: '재고 관리', href: '/inventory', icon: CubeIcon },
   { name: '입고 관리', href: '/inbound', icon: ArrowDownTrayIcon },
   { name: '출고 관리', href: '/outbound', icon: ArrowUpTrayIcon },
@@ -36,7 +40,7 @@ export default function Sidebar() {
               key={item.name}
               href={item.href}
               className={`
-                flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+                flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
                 ${
                   isActive
                     ? 'bg-gray-800 text-white'
@@ -44,8 +48,15 @@ export default function Sidebar() {
                 }
               `}
             >
-              <item.icon className="h-5 w-5" />
-              {item.name}
+              <div className="flex items-center gap-3">
+                <item.icon className="h-5 w-5" />
+                {item.name}
+              </div>
+              {item.badge && (
+                <span className="px-2 py-0.5 text-xs font-bold bg-blue-500 text-white rounded-full">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

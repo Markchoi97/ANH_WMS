@@ -1,4 +1,4 @@
-import { Product, Inbound, Outbound, Partner, DashboardStats } from '@/types';
+import { Product, Inbound, Outbound, Partner, DashboardStats, WorkOrder, MyTask, OpsStats } from '@/types';
 
 // 임시 제품 데이터
 export const mockProducts: Product[] = [
@@ -199,5 +199,182 @@ export const getDashboardStats = (): DashboardStats => {
     recentOutbounds: mockOutbounds.slice(0, 5),
     lowStockProducts: lowStockProducts,
   };
+};
+
+// 작업 지시 데이터
+export const mockWorkOrders: WorkOrder[] = [
+  {
+    id: 'WO-001',
+    type: 'inbound',
+    title: '노트북 A 입고',
+    description: '공급업체로부터 신규 입고',
+    productName: '노트북 A',
+    quantity: 30,
+    unit: '개',
+    location: 'A-1-01',
+    assignee: '김철수',
+    status: 'in-progress',
+    dueDate: new Date(),
+    startedAt: new Date(),
+    createdAt: new Date(),
+  },
+  {
+    id: 'WO-002',
+    type: 'inbound',
+    title: '무선 마우스 입고',
+    description: '정기 입고 건',
+    productName: '무선 마우스',
+    quantity: 50,
+    unit: '개',
+    location: 'A-2-05',
+    assignee: '이영희',
+    status: 'planned',
+    dueDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2시간 후
+    createdAt: new Date(),
+  },
+  {
+    id: 'WO-003',
+    type: 'outbound',
+    title: 'ABC 전자 출고',
+    description: '노트북 10대 출고',
+    productName: '노트북 A',
+    quantity: 10,
+    unit: '개',
+    location: 'A-1-01',
+    assignee: '박지성',
+    status: 'completed',
+    dueDate: new Date(),
+    startedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+    completedAt: new Date(Date.now() - 30 * 60 * 1000),
+    createdAt: new Date(),
+  },
+  {
+    id: 'WO-004',
+    type: 'outbound',
+    title: 'XYZ 고객 출고',
+    description: '키보드 긴급 출고',
+    productName: '키보드',
+    quantity: 5,
+    unit: '개',
+    location: 'A-2-06',
+    assignee: '최민수',
+    status: 'overdue',
+    dueDate: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2시간 전
+    createdAt: new Date(),
+  },
+  {
+    id: 'WO-005',
+    type: 'packing',
+    title: '모니터 포장',
+    description: '모니터 20대 포장 작업',
+    productName: '모니터 27인치',
+    quantity: 20,
+    unit: '개',
+    location: 'B-1-03',
+    assignee: '정수진',
+    status: 'in-progress',
+    dueDate: new Date(Date.now() + 4 * 60 * 60 * 1000),
+    startedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+    createdAt: new Date(),
+  },
+  {
+    id: 'WO-006',
+    type: 'packing',
+    title: 'USB 케이블 포장',
+    description: 'USB 케이블 100개 포장',
+    productName: 'USB 케이블',
+    quantity: 100,
+    unit: '개',
+    location: 'C-1-01',
+    status: 'on-hold',
+    dueDate: new Date(Date.now() + 3 * 60 * 60 * 1000),
+    note: '포장재 재고 부족으로 대기중',
+    createdAt: new Date(),
+  },
+];
+
+// 내 작업 데이터
+export const mockMyTasks: MyTask[] = [
+  {
+    id: 'TASK-001',
+    workOrderId: 'WO-001',
+    type: 'inbound',
+    title: '노트북 A 입고',
+    description: '공급업체로부터 신규 입고',
+    productName: '노트북 A',
+    quantity: 30,
+    unit: '개',
+    location: 'A-1-01',
+    status: 'in-progress',
+    dueDate: new Date(),
+    priority: 'high',
+    barcode: 'LAP-001',
+    qrCode: 'QR-LAP-001',
+    createdAt: new Date(),
+  },
+  {
+    id: 'TASK-002',
+    workOrderId: 'WO-002',
+    type: 'inbound',
+    title: '무선 마우스 입고',
+    description: '정기 입고 건',
+    productName: '무선 마우스',
+    quantity: 50,
+    unit: '개',
+    location: 'A-2-05',
+    status: 'planned',
+    dueDate: new Date(Date.now() + 2 * 60 * 60 * 1000),
+    priority: 'medium',
+    barcode: 'MOU-001',
+    qrCode: 'QR-MOU-001',
+    createdAt: new Date(),
+  },
+  {
+    id: 'TASK-003',
+    workOrderId: 'WO-005',
+    type: 'packing',
+    title: '모니터 포장',
+    description: '모니터 20대 포장 작업',
+    productName: '모니터 27인치',
+    quantity: 20,
+    unit: '개',
+    location: 'B-1-03',
+    status: 'in-progress',
+    dueDate: new Date(Date.now() + 4 * 60 * 60 * 1000),
+    priority: 'medium',
+    barcode: 'MON-001',
+    qrCode: 'QR-MON-001',
+    createdAt: new Date(),
+  },
+];
+
+// Ops 보드 통계
+export const getOpsStats = (): OpsStats => {
+  const stats: OpsStats = {
+    inbound: { planned: 0, inProgress: 0, completed: 0, overdue: 0 },
+    outbound: { planned: 0, inProgress: 0, completed: 0, overdue: 0 },
+    packing: { planned: 0, inProgress: 0, completed: 0, overdue: 0 },
+  };
+
+  mockWorkOrders.forEach(order => {
+    const category = stats[order.type];
+    
+    switch (order.status) {
+      case 'planned':
+        category.planned++;
+        break;
+      case 'in-progress':
+        category.inProgress++;
+        break;
+      case 'completed':
+        category.completed++;
+        break;
+      case 'overdue':
+        category.overdue++;
+        break;
+    }
+  });
+
+  return stats;
 };
 

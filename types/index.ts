@@ -83,3 +83,72 @@ export interface DashboardStats {
   lowStockProducts: Product[];
 }
 
+// 작업 상태 타입
+export type WorkStatus = 'planned' | 'in-progress' | 'completed' | 'overdue' | 'on-hold';
+
+// 작업 타입 (입고/출고/포장)
+export type WorkType = 'inbound' | 'outbound' | 'packing';
+
+// 작업 지시
+export interface WorkOrder {
+  id: string;
+  type: WorkType;
+  title: string;
+  description?: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  location?: string;
+  assignee?: string;
+  status: WorkStatus;
+  dueDate: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  note?: string;
+  attachments?: string[];
+  createdAt: Date;
+}
+
+// 내 작업
+export interface MyTask {
+  id: string;
+  workOrderId: string;
+  type: WorkType;
+  title: string;
+  description?: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  location?: string;
+  status: WorkStatus;
+  dueDate: Date;
+  priority: 'low' | 'medium' | 'high';
+  barcode?: string;
+  qrCode?: string;
+  note?: string;
+  attachments?: string[];
+  createdAt: Date;
+}
+
+// Ops 보드 통계
+export interface OpsStats {
+  inbound: {
+    planned: number;
+    inProgress: number;
+    completed: number;
+    overdue: number;
+  };
+  outbound: {
+    planned: number;
+    inProgress: number;
+    completed: number;
+    overdue: number;
+  };
+  packing: {
+    planned: number;
+    inProgress: number;
+    completed: number;
+    overdue: number;
+  };
+}
+
