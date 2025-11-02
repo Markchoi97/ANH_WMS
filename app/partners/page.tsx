@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Partner } from '@/types';
-import { mockPartners } from '@/lib/mockData';
+import { getPartners, createPartner, updatePartner, deletePartner } from '@/lib/api/partners';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -14,7 +14,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function PartnersPage() {
-  const [partners, setPartners] = useState<Partner[]>(mockPartners);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('전체');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -28,6 +29,23 @@ export default function PartnersPage() {
     address: '',
     note: '',
   });
+
+  useEffect(() => {
+    loadPartners();
+  }, []);
+
+  async function loadPartners() {
+    try {
+      setLoading(true);
+      const data = await getPartners();
+      setPartners(data);
+    } catch (error) {
+      console.error('거래처 로딩 실패:', error);
+      alert('거래처를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const types = ['전체', 'supplier', 'customer', 'both'];
   const typeLabels: Record<string, string> = {
@@ -78,33 +96,33 @@ export default function PartnersPage() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingPartner) {
-      // 수정
-      setPartners(partners.map(p => 
-        p.id === editingPartner.id 
-          ? { ...formData, id: editingPartner.id, createdAt: editingPartner.createdAt, updatedAt: new Date() } as Partner
-          : p
-      ));
-    } else {
-      // 새로 추가
-      const newPartner: Partner = {
-        ...formData,
-        id: String(partners.length + 1),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Partner;
-      setPartners([...partners, newPartner]);
+    try {
+      if (editingPartner) {
+        await updatePartner(editingPartner.id, formData);
+      } else {
+        await createPartner(formData as Omit<Partner, 'id' | 'createdAt' | 'updatedAt'>);
+      }
+      
+      await loadPartners();
+      handleCloseModal();
+    } catch (error) {
+      console.error('거래처 저장 실패:', error);
+      alert('거래처 저장에 실패했습니다.');
     }
-    
-    handleCloseModal();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('정말로 이 거래처를 삭제하시겠습니까?')) {
-      setPartners(partners.filter(p => p.id !== id));
+      try {
+        await deletePartner(id);
+        await loadPartners();
+      } catch (error) {
+        console.error('거래처 삭제 실패:', error);
+        alert('거래처 삭제에 실패했습니다.');
+      }
     }
   };
 
@@ -207,35 +225,43 @@ export default function PartnersPage() {
 
         {/* 거래처 목록 */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    거래처명
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    유형
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    담당자
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    연락처
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    이메일
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    주소
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    작업
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPartners.map((partner) => (
+          {loading ? (
+            <div className="flex items-center justify-center p-12">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-gray-600">데이터를 불러오는 중...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      거래처명
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      유형
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      담당자
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      연락처
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      이메일
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      주소
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      작업
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredPartners.map((partner) => (
                   <tr key={partner.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{partner.name}</div>
@@ -272,9 +298,10 @@ export default function PartnersPage() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
 

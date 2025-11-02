@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import StatusBadge from '@/components/StatusBadge';
-import { mockMyTasks } from '@/lib/mockData';
+import { getMyTasks, updateTaskStatus } from '@/lib/api/workOrders';
 import { MyTask } from '@/types';
 import {
   PlayIcon,
@@ -15,18 +15,38 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function MyTasksPage() {
-  const [tasks, setTasks] = useState<MyTask[]>(mockMyTasks);
+  const [tasks, setTasks] = useState<MyTask[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<MyTask | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [note, setNote] = useState('');
 
-  const handleStart = (taskId: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, status: 'in-progress' as const }
-        : task
-    ));
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  async function loadTasks() {
+    try {
+      setLoading(true);
+      const data = await getMyTasks();
+      setTasks(data);
+    } catch (error) {
+      console.error('작업 로딩 실패:', error);
+      alert('작업을 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleStart = async (taskId: string) => {
+    try {
+      await updateTaskStatus(taskId, 'in-progress');
+      await loadTasks();
+    } catch (error) {
+      console.error('작업 시작 실패:', error);
+      alert('작업을 시작하는데 실패했습니다.');
+    }
   };
 
   const handleScan = (task: MyTask) => {
@@ -40,13 +60,15 @@ export default function MyTasksPage() {
     }, 2000);
   };
 
-  const handleComplete = (taskId: string) => {
+  const handleComplete = async (taskId: string) => {
     if (confirm('작업을 완료하시겠습니까?')) {
-      setTasks(tasks.map(task => 
-        task.id === taskId 
-          ? { ...task, status: 'completed' as const }
-          : task
-      ));
+      try {
+        await updateTaskStatus(taskId, 'completed');
+        await loadTasks();
+      } catch (error) {
+        console.error('작업 완료 실패:', error);
+        alert('작업을 완료하는데 실패했습니다.');
+      }
     }
   };
 
@@ -55,16 +77,18 @@ export default function MyTasksPage() {
     setShowNoteModal(true);
   };
 
-  const handleSaveNote = () => {
+  const handleSaveNote = async () => {
     if (selectedTask && note) {
-      setTasks(tasks.map(task => 
-        task.id === selectedTask.id 
-          ? { ...task, status: 'on-hold' as const, note }
-          : task
-      ));
-      setShowNoteModal(false);
-      setNote('');
-      setSelectedTask(null);
+      try {
+        await updateTaskStatus(selectedTask.id, 'on-hold', note);
+        await loadTasks();
+        setShowNoteModal(false);
+        setNote('');
+        setSelectedTask(null);
+      } catch (error) {
+        console.error('작업 보류 실패:', error);
+        alert('작업을 보류하는데 실패했습니다.');
+      }
     }
   };
 
@@ -110,6 +134,20 @@ export default function MyTasksPage() {
   const inProgressTasks = tasks.filter(t => t.status === 'in-progress');
   const completedTasks = tasks.filter(t => t.status === 'completed');
   const onHoldTasks = tasks.filter(t => t.status === 'on-hold');
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-screen">
+        <Header title="My Tasks" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-600">데이터를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen">

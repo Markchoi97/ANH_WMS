@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import StatusBadge from '@/components/StatusBadge';
 import ProgressBar from '@/components/ProgressBar';
-import { mockWorkOrders, getOpsStats } from '@/lib/mockData';
-import { WorkOrder } from '@/types';
+import { getWorkOrders } from '@/lib/api/workOrders';
+import { WorkOrder, WorkStatus, WorkType } from '@/types';
 import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
@@ -14,9 +14,48 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function OpsBoardPage() {
-  const [workOrders] = useState<WorkOrder[]>(mockWorkOrders);
-  const stats = getOpsStats();
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<'all' | 'inbound' | 'outbound' | 'packing'>('all');
+
+  useEffect(() => {
+    loadWorkOrders();
+  }, []);
+
+  async function loadWorkOrders() {
+    try {
+      setLoading(true);
+      const data = await getWorkOrders();
+      setWorkOrders(data);
+    } catch (error) {
+      console.error('작업 지시서 로딩 실패:', error);
+      alert('작업 지시서를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // 통계 계산
+  const getStats = () => {
+    const inboundOrders = workOrders.filter(o => o.type === 'inbound');
+    const outboundOrders = workOrders.filter(o => o.type === 'outbound');
+    const packingOrders = workOrders.filter(o => o.type === 'packing');
+
+    const countByStatus = (orders: WorkOrder[]) => ({
+      planned: orders.filter(o => o.status === 'planned').length,
+      inProgress: orders.filter(o => o.status === 'in-progress').length,
+      completed: orders.filter(o => o.status === 'completed').length,
+      overdue: orders.filter(o => o.status === 'overdue').length,
+    });
+
+    return {
+      inbound: countByStatus(inboundOrders),
+      outbound: countByStatus(outboundOrders),
+      packing: countByStatus(packingOrders),
+    };
+  };
+
+  const stats = getStats();
 
   const filteredOrders = selectedType === 'all' 
     ? workOrders 
@@ -55,6 +94,20 @@ export default function OpsBoardPage() {
       default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-screen">
+        <Header title="Ops 보드" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-600">데이터를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen">

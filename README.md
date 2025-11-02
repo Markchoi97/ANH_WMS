@@ -44,11 +44,27 @@ Next.js 기반의 현대적인 창고 관리 시스템 (Warehouse Management Sys
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Icons**: Heroicons
+- **Database**: Supabase (PostgreSQL)
 - **Deployment**: Vercel
 
 ## 📦 설치 및 실행
 
-### 개발 환경 실행
+### 1. 환경 변수 설정
+
+프로젝트 루트에 `.env.local` 파일을 생성하고 다음 내용을 추가하세요:
+
+\`\`\`env
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+\`\`\`
+
+### 2. Supabase 데이터베이스 설정
+
+1. [Supabase Dashboard](https://supabase.com/dashboard)에 접속
+2. 프로젝트의 **SQL Editor**를 엽니다
+3. `supabase-schema.sql` 파일의 내용을 복사하여 실행합니다
+
+### 3. 개발 환경 실행
 
 \`\`\`bash
 # 의존성 설치

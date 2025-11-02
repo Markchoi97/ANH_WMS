@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
-import { getDashboardStats } from '@/lib/mockData';
+import { getProducts } from '@/lib/api/products';
+import { Product } from '@/types';
 import { 
   CubeIcon, 
   ExclamationTriangleIcon, 
@@ -10,7 +12,27 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function Home() {
-  const stats = getDashboardStats();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      const productsData = await getProducts();
+      setProducts(productsData);
+    } catch (error) {
+      console.error('데이터 로딩 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const lowStockProducts = products.filter(p => p.quantity < p.minStock);
+  const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR', {
@@ -29,6 +51,20 @@ export default function Home() {
     }).format(date);
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col h-screen">
+        <Header title="대시보드" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-600">데이터를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
       <Header title="대시보드" />
@@ -40,7 +76,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">총 제품 수</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalProducts}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{products.length}</p>
               </div>
               <div className="rounded-full bg-blue-100 p-3">
                 <CubeIcon className="h-6 w-6 text-blue-600" />
@@ -52,7 +88,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">총 재고 수량</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalStock}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{totalStock}</p>
               </div>
               <div className="rounded-full bg-green-100 p-3">
                 <CubeIcon className="h-6 w-6 text-green-600" />
@@ -64,7 +100,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">재고 부족 품목</p>
-                <p className="text-3xl font-bold text-red-600 mt-2">{stats.lowStockItems}</p>
+                <p className="text-3xl font-bold text-red-600 mt-2">{lowStockProducts.length}</p>
               </div>
               <div className="rounded-full bg-red-100 p-3">
                 <ExclamationTriangleIcon className="h-6 w-6 text-red-600" />
@@ -77,7 +113,7 @@ export default function Home() {
               <div>
                 <p className="text-sm font-medium text-gray-600">금일 입/출고</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {stats.totalInboundToday}/{stats.totalOutboundToday}
+                  0/0
                 </p>
               </div>
               <div className="rounded-full bg-purple-100 p-3">
@@ -97,20 +133,7 @@ export default function Home() {
               </div>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
-                {stats.recentInbounds.map((inbound) => (
-                  <div key={inbound.id} className="flex items-center justify-between border-b border-gray-100 pb-3">
-                    <div>
-                      <p className="font-medium text-gray-900">{inbound.productName}</p>
-                      <p className="text-sm text-gray-500">{inbound.supplierName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-green-600">+{inbound.quantity}{inbound.unit}</p>
-                      <p className="text-xs text-gray-500">{formatDate(inbound.inboundDate)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-gray-500 text-center py-8">입고 데이터가 없습니다</p>
             </div>
           </div>
 
@@ -123,20 +146,7 @@ export default function Home() {
               </div>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
-                {stats.recentOutbounds.map((outbound) => (
-                  <div key={outbound.id} className="flex items-center justify-between border-b border-gray-100 pb-3">
-                    <div>
-                      <p className="font-medium text-gray-900">{outbound.productName}</p>
-                      <p className="text-sm text-gray-500">{outbound.customerName}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-blue-600">-{outbound.quantity}{outbound.unit}</p>
-                      <p className="text-xs text-gray-500">{formatDate(outbound.outboundDate)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-gray-500 text-center py-8">출고 데이터가 없습니다</p>
             </div>
           </div>
         </div>
@@ -172,25 +182,33 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {stats.lowStockProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {product.name}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {product.sku}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
-                        <span className="text-red-600 font-semibold">{product.quantity}{product.unit}</span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {product.minStock}{product.unit}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {product.location}
+                  {lowStockProducts.length > 0 ? (
+                    lowStockProducts.map((product) => (
+                      <tr key={product.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {product.name}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {product.sku}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          <span className="text-red-600 font-semibold">{product.quantity}{product.unit}</span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {product.minStock}{product.unit}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {product.location}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                        재고 부족 품목이 없습니다
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Product } from '@/types';
-import { mockProducts } from '@/lib/mockData';
+import { getProducts, createProduct, updateProduct, deleteProduct } from '@/lib/api/products';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -13,7 +13,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function InventoryPage() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,6 +30,23 @@ export default function InventoryPage() {
     location: '',
     description: '',
   });
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  async function loadProducts() {
+    try {
+      setLoading(true);
+      const data = await getProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error('제품 로딩 실패:', error);
+      alert('제품을 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const categories = ['전체', ...Array.from(new Set(products.map(p => p.category)))];
 
@@ -83,33 +101,35 @@ export default function InventoryPage() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingProduct) {
-      // 수정
-      setProducts(products.map(p => 
-        p.id === editingProduct.id 
-          ? { ...formData, id: editingProduct.id, createdAt: editingProduct.createdAt, updatedAt: new Date() } as Product
-          : p
-      ));
-    } else {
-      // 새로 추가
-      const newProduct: Product = {
-        ...formData,
-        id: String(products.length + 1),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Product;
-      setProducts([...products, newProduct]);
+    try {
+      if (editingProduct) {
+        // 수정
+        await updateProduct(editingProduct.id, formData);
+      } else {
+        // 새로 추가
+        await createProduct(formData as Omit<Product, 'id' | 'createdAt' | 'updatedAt'>);
+      }
+      
+      await loadProducts();
+      handleCloseModal();
+    } catch (error) {
+      console.error('제품 저장 실패:', error);
+      alert('제품 저장에 실패했습니다.');
     }
-    
-    handleCloseModal();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('정말로 이 제품을 삭제하시겠습니까?')) {
-      setProducts(products.filter(p => p.id !== id));
+      try {
+        await deleteProduct(id);
+        await loadProducts();
+      } catch (error) {
+        console.error('제품 삭제 실패:', error);
+        alert('제품 삭제에 실패했습니다.');
+      }
     }
   };
 
@@ -154,38 +174,46 @@ export default function InventoryPage() {
 
         {/* 제품 목록 */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    제품명
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    SKU
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    카테고리
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    재고 수량
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    단가
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    위치
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    상태
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    작업
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProducts.map((product) => (
+          {loading ? (
+            <div className="flex items-center justify-center p-12">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-gray-600">데이터를 불러오는 중...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      제품명
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      SKU
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      카테고리
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      재고 수량
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      단가
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      위치
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      상태
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      작업
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
@@ -247,9 +275,10 @@ export default function InventoryPage() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
 
