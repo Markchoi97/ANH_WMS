@@ -70,6 +70,19 @@ const navigation: NavigationItem[] = [
   { name: '출고 관리', href: '/outbound', icon: ArrowUpTrayIcon },
   { name: '거래처 관리', href: '/partners', icon: UsersIcon },
   { name: '사용자 관리', href: '/users', icon: UserCircleIcon },
+  { 
+    name: '👨‍💼 관리자 모드', 
+    href: '/global-fulfillment/admin', 
+    icon: ChartBarIcon, 
+    badge: 'ADMIN',
+    subItems: [
+      { name: '통합 대시보드', href: '/global-fulfillment/admin/dashboard' },
+      { name: '작업자 관리', href: '/global-fulfillment/admin/workers' },
+      { name: '성과 분석', href: '/global-fulfillment/admin/performance' },
+      { name: '비용 분석', href: '/global-fulfillment/admin/cost-analysis' },
+      { name: '알림 설정', href: '/global-fulfillment/admin/alerts' },
+    ]
+  },
 ];
 
 export default function Sidebar() {
