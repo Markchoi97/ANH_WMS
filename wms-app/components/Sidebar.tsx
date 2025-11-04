@@ -47,7 +47,7 @@ const navigation: NavigationItem[] = [
     subItems: [
       { name: '드롭시핑', href: '/global-fulfillment/drop-shipping' },
       { name: '상품 준비', href: '/global-fulfillment/preparation' },
-      { name: '파도 관리', href: '/global-fulfillment/wave-management' },
+      { name: '출고 계획(파도 관리)', href: '/global-fulfillment/wave-management' },
       { name: '2차 정렬', href: '/global-fulfillment/second-sorting' },
       { name: '검증/검사', href: '/global-fulfillment/inspection' },
       { name: '패키지 검증', href: '/global-fulfillment/package-check' },
@@ -94,7 +94,7 @@ export default function Sidebar() {
           const isActive = pathname === item.href;
           const isExpanded = expandedItems.includes(item.name);
           const hasSubItems = item.subItems && item.subItems.length > 0;
-          const isSubItemActive = hasSubItems && item.subItems.some(sub => pathname === sub.href);
+          const isSubItemActive = hasSubItems && item.subItems?.some(sub => pathname === sub.href);
 
           return (
             <div key={item.name}>
@@ -153,7 +153,7 @@ export default function Sidebar() {
               )}
 
               {/* 하위 메뉴 */}
-              {hasSubItems && isExpanded && (
+              {hasSubItems && isExpanded && item.subItems && (
                 <div className="ml-4 mt-1 space-y-1">
                   {item.subItems.map((subItem) => {
                     const isSubActive = pathname === subItem.href;
