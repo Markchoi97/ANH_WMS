@@ -1,0 +1,275 @@
+/**
+     * 订单导入
+     */
+    public function imports()
+    {
+        if ($this->request->isPost()) {
+            $file = $this->request->file('file');
+// 判断配置发件人信息
+            $sender = Db::name('admin_addr')->where(['uid' => $this->auth->id])->find();
+            if (empty($sender)) $this->error('请配置寄件信息', 'general/profile');
+            if (!$file) {
+                $this->error('请选择上传文件');
+            }
+            $filePath = $file->getRealPath();
+            $spreadsheet = IOFactory::load($filePath);
+            $sheet = $spreadsheet->getSheet(0);
+            $rows = $sheet->toArray();
+
+// 验证表头
+            $header = array_shift($rows);
+// 过滤掉空值
+            $header = array_filter($header, function($value) {
+                return $value !== null && $value !== '';
+            });
+// 重置索引（如果需要）
+            $header = array_values($header);
+
+            $expectedHeader = ['订单号', '退单号', '收件人姓名', '收件人电话', '收件地址', '收件人邮编', '商品名称', '备注'];
+
+            if ($header != $expectedHeader) {
+                $this->error('模板格式不正确，请下载最新模板');
+            }
+            $waybillcount = Db::name('waybill')->where(['status' => 1, 'deleted' => 0, 'logistics_company' => 'CJ'])->count();
+
+            // 处理导入数据
+            $successCount = 0;
+            $errorData = [];
+            Db::startTrans();
+            foreach ($rows as $index => $row) {
+                $orderNo = $row[0] ?? '';
+                $returnNo = $row[1] ?? '';
+                $receiverName = $row[2] ?? '';
+                $receiverPhone = $row[3] ?? '';
+//                $receiverRegion = $row[4] ?? '';
+                $receiverAddress = $row[4] ?? '';
+                $receiverZipcode = $row[5] ?? '';
+                $productName = $row[6] ?? '';
+                $remark = $row[7] ?? '';
+//                $box = $row[9] ?? '';
+                // 数据验证
+                if (empty($orderNo) || empty($receiverName) || empty($receiverPhone)) {
+                    $errorData[] = "第" . ($index + 2) . "行数据不完整";
+                    continue;
+                }
+
+                // 检查订单是否已存在
+                if ($this->model->where('order_no', $orderNo)->find()) {
+                    $errorData[] = "第" . ($index + 2) . "行订单号已存在";
+                    continue;
+                }
+
+                /*if ($waybillcount < count($rows)) {
+                    $this->error('运单号不充足，请联系客户补充');
+                }*/
+                try {
+                    //取一个运单号并将其改为1
+//                       $findwaybill =  Db::name('waybill')->where(['status'=>1,'deleted'=>0,'logistics_company'=>'CJ'])->find();
+                    //取个单号
+                    $waybill = $this->waybills($orderNo);
+                    // 准备主表数据（整合两个版本的字段）
+                    $orderMainData = [
+                        'order_no' => $orderNo,
+                        'return_no' => $returnNo ?? '',
+                        'product_name' => $productName ?? '',
+                        'remark' => $remark ?? '',
+                        'create_time' => date('Y-m-d H:i:s'),
+                        'user_id' => $this->auth->id,
+                        'wz_id' => md5($orderNo . ($returnNo ?? '') . ($remark ?? '') . time() . $this->auth->id),
+                        'tracking_no' => $waybill ?? '',
+                    ];
+                    // 插入主表数据（两种方式兼容）
+                    $orderId = $this->model->insertGetId($orderMainData); // 使用模型方式
+                    // 或者：$orderId = Db::name('order_main')->insertGetId($orderMainData);
+//                        Db::name('waybill')->where(['number'=>$findwaybill['number']])->update(['status'=>0,'order_id'=>$orderMainData['order_no']]);
+                    if (!$orderId) {
+                        throw new Exception('主表数据插入失败');
+                    }
+
+                    // 准备收件人表数据（整合字段）
+                    $receiverData = [
+                        'receiver_name' => $receiverName,
+                        'receiver_phone' => $receiverPhone,
+                        'receiver_zipcode' => $receiverZipcode ?? '',
+//                        'receiver_region' => $receiverRegion ?? '',
+                        'receiver_address' => $receiverAddress ?? '',
+                        'create_time' => date('Y-m-d H:i:s'),
+                        'wz_id' => $orderMainData['wz_id'],
+//                        'box'=>$box
+                    ];
+                    // 插入收件人表数据
+                    $receiverId = Db::name('order_receiver')->insertGetId($receiverData);
+                    if (!$receiverId) {
+                        throw new Exception('收件人数据插入失败');
+                    }
+
+                    // 更新主表的收件人ID（如果需要）
+                    $updateResult = Db::name('order_main')
+                        ->where('id', $orderId)
+                        ->update(['receiver_id' => $receiverId]);
+
+                    if ($updateResult === false) {
+                        throw new Exception('收件人ID更新失败');
+                    }
+                    //插入仓库表
+                    $storeData = [
+                        'tracking_no' =>$waybill,
+                        'order_id' => $orderMainData['order_no'],
+                        'operator_id' => $this->auth->id,
+                        'create_time' => date('Y-m-d H:i:s'),
+                    ];
+                    $savesotre = Db::name('scan_store')->insertGetId($storeData);
+
+                    if ($savesotre === false) {
+                        throw new Exception('入库失败');
+                    }
+                    $this->model->where('order_no', $orderNo)->update(['tracking_no' =>$waybill]);
+                    //订单数据发送给CJ
+                    $this->Regbook($waybill,$sender);
+                    Db::commit();
+                    $successCount++;
+                } catch (Exception $e) {
+                    Db::rollback();
+                    $errorData[] = "第" . ($index + 2) . "行处理失败：" . $e->getMessage();
+                }
+            }
+
+            Db::commit();
+
+            $msg = "成功导入 {$successCount} 条数据";
+            if (!empty($errorData)) {
+                $msg .= "，失败 " . count($errorData) . " 条：" . implode('；', $errorData);
+            }
+
+            $this->success($msg, null, [
+
+            ]);
+        }
+        return $this->view->fetch();
+
+    }
+
+
+
+function Regbook($invcNo,$sender)
+    {
+        $find = Db::name('logistics_company')->where(['mark' => 'CJ'])->find();
+        if (!$find) {
+            throw new Exception('CJ物流公司配置信息未找到');
+        }
+
+        $token = $find['hmacgen'];
+        $clientId = $find['client_id'];
+        $apiUrl = rtrim($find['api_url'], '/') . '/RegBook';
+
+        $order = $this->model->where(['tracking_no' => $invcNo])->find();
+        $order_receiver = Db::name('order_receiver')->where(['wz_id' => $order['wz_id']])->find();
+        $data = [
+            "DATA" => [
+                "TOKEN_NUM" => $token,
+                "CUST_ID" => $clientId,
+                "RCPT_YMD" => date('Ymd'),
+                "CUST_USE_NO" => $order['order_no'],
+                "RCPT_DV" => "01",
+                "WORK_DV_CD" => "01",
+                "REQ_DV_CD" => "01",
+                "MPCK_KEY" => $order['order_no'],
+                "CAL_DV_CD" => "01",
+                "FRT_DV_CD" => "03",
+                "CNTR_ITEM_CD" => "01",
+                "BOX_TYPE_CD" => "01", //盒子要删除
+                "BOX_QTY" => 1,
+                "FRT" => 6250,
+                "CUST_MGMT_DLCM_CD" => "30564514",
+
+                // 寄件人信息
+                "SENDR_NM" => $sender['sender_name'],
+                "SENDR_TEL_NO1" => "010",
+                "SENDR_TEL_NO2" => "7179",
+                "SENDR_TEL_NO3" => "8998",
+
+                "SENDR_ZIP_NO" => "10009",
+                "SENDR_ADDR" => "김포시 통진읍",
+                "SENDR_DETAIL_ADDR" => "김포시 통진읍 서암고정로 295",
+
+                // 收件人信息
+                "RCVR_NM" => $order_receiver['receiver_name'],
+                "RCVR_TEL_NO1" => "02",
+                "RCVR_TEL_NO2" => "1577",
+                "RCVR_TEL_NO3" => "1111", //多个电话号码
+                "RCVR_ZIP_NO" => $order_receiver['receiver_zipcode'],
+//                "RCVR_ADDR" => $order_receiver['receiver_region'],//地址
+                "RCVR_ADDR" => $order_receiver['receiver_address'],//地址
+                "RCVR_DETAIL_ADDR" => $order_receiver['receiver_address'],//详细地址
+//                    "RCVR_DETAIL_ADDR" => "죽전동 1307, 꽃메마을아이파크 104동 1703호",
+                // 运单号
+                "INVC_NO" => $invcNo,
+                "PRT_ST" => '02',//必须
+                "DLV_DV" => '01',//必须
+                // 商品明细（可选）
+                "ARRAY" => [
+                    [
+                        "MPCK_SEQ" => "1",
+                        "GDS_CD" => "2",
+                        "GDS_NM" => "TX",
+                        "GDS_QTY" => 1,
+                        "UNIT_CD" => "11",
+                        "UNIT_NM" => "TEST 2",
+                        "GDS_AMT" => 15000
+                    ]
+                ]
+            ]
+        ];
+        $post = new Waybill();
+        $result = $post->call_cj_api($apiUrl, $data, $token);
+        if (!isset($result['RESULT_CD'])) {
+            $this->error('API响应格式异常');
+        }
+
+        if ($result['RESULT_CD'] === 'E') {
+            $errorMsg = $result['RESULT_DETAIL'] ?? '未知错误';
+            $this->error('CJ API错误: ' . $errorMsg);
+        }
+        $this->model->where(['tracking_no' => $invcNo])->update(['api_status' => 1]);
+        return $result;
+    }
+function call_cj_api($url, $data, $token = null) {
+        $headers = [
+            "Content-Type: application/json",
+            "Accept: application/json"
+        ];
+
+        if ($token) {
+            $headers[] = "CJ-Gateway-APIKey: {$token}";
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($data, JSON_UNESCAPED_UNICODE),
+            CURLOPT_HTTPHEADER => $headers
+        ]);
+        $response = curl_exec($ch);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error) {
+            // 返回标准结构用于后续判断
+            return [
+                'RESULT_CD' => 'F',
+                'ERROR_MSG' => $error
+            ];
+        }
+
+        $decoded = json_decode($response, true);
+        if (!is_array($decoded)) {
+            return [
+                'RESULT_CD' => 'F',
+                'ERROR_MSG' => '响应格式错误',
+                'RAW_RESPONSE' => $response
+            ];
+        }
+
+        return $decoded;
+    }
